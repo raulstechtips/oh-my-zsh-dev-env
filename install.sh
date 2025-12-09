@@ -18,23 +18,35 @@ log_warn() {
     echo "[WARN] $1"
 }
 
+# Run command with elevated privileges if needed
+run_privileged() {
+    if [ "$(id -u)" -eq 0 ]; then
+        "$@"
+    elif command -v sudo &> /dev/null; then
+        sudo "$@"
+    else
+        log_warn "Need root privileges but sudo not available"
+        return 1
+    fi
+}
+
 # Detect package manager and install dependencies
 install_dependencies() {
     log_info "Installing dependencies..."
     
     if command -v apt-get &> /dev/null; then
         log_info "Installing dependencies via apt..."
-        sudo apt-get update -qq
-        sudo apt-get install -y -qq zsh git curl wget fontconfig
+        run_privileged apt-get update -qq
+        run_privileged apt-get install -y -qq zsh git curl wget fontconfig
     elif command -v apk &> /dev/null; then
         log_info "Installing dependencies via apk..."
-        sudo apk add --no-cache zsh git curl wget fontconfig
+        run_privileged apk add --no-cache zsh git curl wget fontconfig
     elif command -v yum &> /dev/null; then
         log_info "Installing dependencies via yum..."
-        sudo yum install -y -q zsh git curl wget fontconfig
+        run_privileged yum install -y -q zsh git curl wget fontconfig
     elif command -v dnf &> /dev/null; then
         log_info "Installing dependencies via dnf..."
-        sudo dnf install -y -q zsh git curl wget fontconfig
+        run_privileged dnf install -y -q zsh git curl wget fontconfig
     else
         log_warn "Could not detect package manager, skipping dependency installation"
         return
@@ -115,7 +127,7 @@ configure_shell() {
     
     # Try to set zsh as default shell
     if command -v chsh &> /dev/null; then
-        sudo chsh -s "$(which zsh)" "$(whoami)" 2>/dev/null || true
+        run_privileged chsh -s "$(which zsh)" "$(whoami)" 2>/dev/null || true
     fi
     
     # Add zsh launch to .bashrc for seamless devcontainer integration
