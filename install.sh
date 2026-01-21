@@ -37,16 +37,16 @@ install_dependencies() {
     if command -v apt-get &> /dev/null; then
         log_info "Installing dependencies via apt..."
         run_privileged apt-get update -qq
-        run_privileged apt-get install -y -qq zsh git curl wget fontconfig
+        run_privileged apt-get install -y -qq zsh git curl wget fontconfig tmux
     elif command -v apk &> /dev/null; then
         log_info "Installing dependencies via apk..."
-        run_privileged apk add --no-cache zsh git curl wget fontconfig
+        run_privileged apk add --no-cache zsh git curl wget fontconfig tmux
     elif command -v yum &> /dev/null; then
         log_info "Installing dependencies via yum..."
-        run_privileged yum install -y -q zsh git curl wget fontconfig
+        run_privileged yum install -y -q zsh git curl wget fontconfig tmux
     elif command -v dnf &> /dev/null; then
         log_info "Installing dependencies via dnf..."
-        run_privileged dnf install -y -q zsh git curl wget fontconfig
+        run_privileged dnf install -y -q zsh git curl wget fontconfig tmux
     else
         log_warn "Could not detect package manager, skipping dependency installation"
         return
@@ -102,12 +102,36 @@ install_syntax_highlighting() {
     fi
 }
 
+# Install Tmux Plugin Manager (TPM)
+install_tpm() {
+    local TPM_DIR="$HOME/.tmux/plugins/tpm"
+    if [ ! -d "$TPM_DIR" ]; then
+        log_info "Installing Tmux Plugin Manager..."
+        git clone --depth=1 https://github.com/tmux-plugins/tpm "$TPM_DIR"
+        log_success "TPM installed"
+    else
+        log_success "TPM already installed"
+    fi
+}
+
+# Install Tmux plugins
+install_tmux_plugins() {
+    if [ -d "$HOME/.tmux/plugins/tpm" ]; then
+        log_info "Installing tmux plugins..."
+        # Run TPM plugin installer
+        "$HOME/.tmux/plugins/tpm/bin/install_plugins"
+        log_success "Tmux plugins installed"
+    else
+        log_warn "TPM not found, skipping plugin installation"
+    fi
+}
+
 # Link dotfiles
 link_dotfiles() {
     log_info "Linking configuration files..."
     
     # Backup existing files if they exist and aren't symlinks
-    for file in .zshrc .p10k.zsh; do
+    for file in .zshrc .p10k.zsh .tmux.conf; do
         if [ -f "$HOME/$file" ] && [ ! -L "$HOME/$file" ]; then
             log_info "Backing up existing $file to $file.backup"
             mv "$HOME/$file" "$HOME/$file.backup"
@@ -117,8 +141,39 @@ link_dotfiles() {
     # Create symlinks
     ln -sf "$DOTFILES_DIR/.zshrc" "$HOME/.zshrc"
     ln -sf "$DOTFILES_DIR/.p10k.zsh" "$HOME/.p10k.zsh"
+    ln -sf "$DOTFILES_DIR/.tmux.conf" "$HOME/.tmux.conf"
     
     log_success "Configuration files linked"
+}
+
+# Configure tmux to use the correct zsh path
+configure_tmux_shell() {
+    local ZSH_PATH
+    ZSH_PATH=$(which zsh)
+    
+    if [ -z "$ZSH_PATH" ]; then
+        log_warn "Could not find zsh path, tmux may not use zsh"
+        return
+    fi
+    
+    log_info "Configuring tmux to use zsh at: $ZSH_PATH"
+    
+    # Update tmux.conf with the correct zsh path
+    if [ -f "$HOME/.tmux.conf" ]; then
+        # Check if the line already exists
+        if grep -q "^set-option -g default-shell" "$HOME/.tmux.conf"; then
+            # Update existing line
+            if command -v sed &> /dev/null; then
+                sed -i.bak "s|^set-option -g default-shell.*|set-option -g default-shell $ZSH_PATH|" "$HOME/.tmux.conf"
+                rm -f "$HOME/.tmux.conf.bak"
+            fi
+        else
+            # Add line at the beginning
+            echo "set-option -g default-shell $ZSH_PATH" | cat - "$HOME/.tmux.conf" > "$HOME/.tmux.conf.tmp"
+            mv "$HOME/.tmux.conf.tmp" "$HOME/.tmux.conf"
+        fi
+        log_success "Tmux configured to use zsh at $ZSH_PATH"
+    fi
 }
 
 # Set zsh as default shell and configure bash to launch zsh
@@ -168,7 +223,10 @@ main() {
     install_powerlevel10k
     install_autosuggestions
     install_syntax_highlighting
+    install_tpm
     link_dotfiles
+    configure_tmux_shell
+    install_tmux_plugins
     configure_shell
     
     echo ""

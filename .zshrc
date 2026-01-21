@@ -28,12 +28,19 @@ plugins=(
     zsh-syntax-highlighting
     docker
     kubectl
+    tmux
     npm
     node
     python
     pip
     virtualenv
 )
+
+# Tmux plugin configuration
+# Set to false to prevent auto-starting tmux (recommended for devcontainers)
+ZSH_TMUX_AUTOSTART=false
+# Auto-connect to existing session if available
+ZSH_TMUX_AUTOCONNECT=true
 
 # Load Oh My Zsh
 source $ZSH/oh-my-zsh.sh
