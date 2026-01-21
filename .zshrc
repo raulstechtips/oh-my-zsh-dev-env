@@ -38,7 +38,7 @@ plugins=(
 
 # Tmux plugin configuration
 # Set to false to prevent auto-starting tmux (recommended for devcontainers)
-ZSH_TMUX_AUTOSTART=false
+ZSH_TMUX_AUTOSTART=true
 # Auto-connect to existing session if available
 ZSH_TMUX_AUTOCONNECT=true
 
